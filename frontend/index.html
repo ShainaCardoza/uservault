@@ -675,7 +675,7 @@
   // ─────────────────────────────────────────────
   //  CONFIG
   // ─────────────────────────────────────────────
-  const API = 'http://localhost:5000/api/users';
+  const API = 'https://uservault-1-hvh5.onrender.com/api/users';
 
   let currentPage = 1;
   let editingId = null;
@@ -691,7 +691,7 @@
 
   async function checkStatus() {
     try {
-      const r = await fetch('http://localhost:5000/');
+      const r = await fetch('https://uservault-1-hvh5.onrender.com/');
       if (r.ok) {
         document.getElementById('status-dot').className = 'status-dot online';
         document.getElementById('status-text').textContent = 'API Online';
