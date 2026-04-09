@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UserVault — User Management System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── RESET & TOKENS ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0a0f;
+      --surface:  #111118;
+      --card:     #16161f;
+      --border:   #232336;
+      --border2:  #2e2e4a;
+      --accent:   #7c6af7;
+      --accent2:  #a78bfa;
+      --green:    #34d399;
+      --red:      #f87171;
+      --amber:    #fbbf24;
+      --text:     #e8e8f0;
+      --muted:    #6b6b8a;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Syne', sans-serif;
+      --radius:   10px;
+      --shadow:   0 4px 24px rgba(0,0,0,0.5);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── GRID NOISE BACKGROUND ──────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────── */
+    .app { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ─── HEADER ─────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 36px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span { color: var(--accent2); }
+
+    .header-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 100px;
+    }
+
+    .api-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: none;
+    }
+    .status-dot.online { background: var(--green); animation: pulse 2s infinite; }
+    .status-dot.error { background: var(--red); }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── TABS ───────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px;
+      margin-bottom: 36px;
+      width: fit-content;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tab:not(.active):hover { color: var(--text); background: var(--card); }
+
+    /* ─── SECTION HEADER ─────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .count-badge {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--border);
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 100px;
+    }
+
+    /* ─── SEARCH BAR ─────────────────────────────────── */
+    .search-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    /* ─── FORM CARD ──────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 28px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent2);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-grid.full { grid-template-columns: 1fr; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+
+    .field label span { color: var(--red); }
+
+    input, textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,106,247,0.15);
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .field-hint { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    /* ─── BUTTONS ────────────────────────────────────── */
+    .btn {
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      border: none;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #6b5ce7; transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+
+    .btn-danger {
+      background: rgba(248,113,113,0.1);
+      color: var(--red);
+      border: 1px solid rgba(248,113,113,0.2);
+    }
+    .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+    .btn-success {
+      background: rgba(52,211,153,0.1);
+      color: var(--green);
+      border: 1px solid rgba(52,211,153,0.2);
+    }
+    .btn-success:hover { background: rgba(52,211,153,0.2); }
+
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    /* ─── USERS TABLE ────────────────────────────────── */
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead { background: var(--surface); border-bottom: 1px solid var(--border); }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-family: var(--mono);
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: rgba(124,106,247,0.04); }
+
+    .user-name { font-weight: 700; font-size: 14px; }
+    .user-email { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+
+    .hobby-pill {
+      display: inline-block;
+      background: rgba(124,106,247,0.1);
+      color: var(--accent2);
+      border: 1px solid rgba(124,106,247,0.2);
+      border-radius: 100px;
+      padding: 2px 9px;
+      font-size: 11px;
+      margin: 2px;
+      font-family: var(--mono);
+    }
+
+    .age-badge {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .actions-cell { display: flex; gap: 6px; }
+
+    /* ─── EMPTY STATE ─────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+    .empty-text { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .empty-sub { font-size: 13px; }
+
+    /* ─── MODAL ──────────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 560px;
+      padding: 32px;
+      animation: popIn 0.2s ease;
+    }
+
+    @keyframes popIn {
+      from { opacity:0; transform: scale(0.95) translateY(12px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .modal-title { font-size: 18px; font-weight: 700; }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+    .close-btn:hover { color: var(--text); }
+
+    /* ─── TOAST ──────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      max-width: 340px;
+      animation: slideIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid;
+    }
+
+    @keyframes slideIn {
+      from { opacity:0; transform: translateX(30px); }
+      to   { opacity:1; transform: translateX(0); }
+    }
+
+    .toast.success { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: var(--green); }
+    .toast.error   { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); color: var(--red); }
+    .toast.info    { background: rgba(124,106,247,0.12); border-color: rgba(124,106,247,0.3); color: var(--accent2); }
+
+    /* ─── LOADING SPINNER ────────────────────────────── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-row { text-align: center; padding: 40px; color: var(--muted); }
+
+    /* ─── PAGINATION ─────────────────────────────────── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .page-btn {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+
+    .page-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ─── RESPONSIVE ──────────────────────────────────── */
+    @media (max-width: 900px) {
+      .search-row { grid-template-columns: 1fr 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .hide-mobile { display: none !important; }
+    }
+
+    @media (max-width: 600px) {
+      header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .tabs { width: 100%; flex-wrap: wrap; }
+      .search-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- Edit Modal -->
+<div class="overlay" id="edit-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">✏️ Edit User</h3>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Name <span>*</span></label>
+        <input type="text" id="edit-name" placeholder="Full name" />
+      </div>
+      <div class="field">
+        <label>Email <span>*</span></label>
+        <input type="email" id="edit-email" placeholder="user@example.com" />
+      </div>
+      <div class="field">
+        <label>Age</label>
+        <input type="number" id="edit-age" placeholder="0–120" min="0" max="120" />
+      </div>
+      <div class="field">
+        <label>Hobbies</label>
+        <input type="text" id="edit-hobbies" placeholder="reading, hiking, coding" />
+      </div>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <label>Bio</label>
+      <textarea id="edit-bio" placeholder="Short bio for text search..."></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveEdit()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🗄</div>
+      <div class="logo-text">User<span>Vault</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div class="api-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Connecting...</span>
+      </div>
+      <div class="header-badge">MongoDB · Mongoose · Node.js</div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" id="tab-list" onclick="switchTab('list')">📋 All Users</button>
+    <button class="tab" id="tab-add" onclick="switchTab('add')">➕ Add User</button>
+  </div>
+
+  <!-- ── ADD USER SECTION ── -->
+  <div id="section-add" style="display:none">
+    <div class="card">
+      <div class="card-title">🧑‍💻 New User Registration</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Name <span>*</span></label>
+          <input type="text" id="add-name" placeholder="e.g. Alice Johnson" />
+          <span class="field-hint">Minimum 3 characters</span>
+        </div>
+        <div class="field">
+          <label>Email <span>*</span></label>
+          <input type="email" id="add-email" placeholder="alice@example.com" />
+          <span class="field-hint">Must be unique</span>
+        </div>
+        <div class="field">
+          <label>Age</label>
+          <input type="number" id="add-age" placeholder="25" min="0" max="120" />
+          <span class="field-hint">Range: 0 – 120</span>
+        </div>
+        <div class="field">
+          <label>Hobbies</label>
+          <input type="text" id="add-hobbies" placeholder="reading, hiking, coding" />
+          <span class="field-hint">Comma-separated list</span>
+        </div>
+      </div>
+      <div class="field" style="margin-top:16px">
+        <label>Bio</label>
+        <textarea id="add-bio" placeholder="A short bio — this field is full-text searchable via the text index on MongoDB..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="clearAddForm()">🗑 Clear</button>
+        <button class="btn btn-primary" id="add-btn" onclick="addUser()">➕ Create User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── USER LIST SECTION ── -->
+  <div id="section-list">
+    <div class="section-header">
+      <div class="section-title">All Users</div>
+      <div class="count-badge" id="user-count">— users</div>
+    </div>
+
+    <!-- SEARCH & FILTER ROW -->
+    <div class="search-row">
+      <div class="field">
+        <label>Search Name</label>
+        <input type="text" id="f-name" placeholder="Name..." oninput="debounceSearch()" />
+      </div>
+      <div class="field">
+        <label>Email Filter</label>
+        <input type="text" id="f-email" placeholder="email@..." oninput="debounceSearch()" />
+      </div>
+      <div class="field">
+        <label>Hobby</label>
+        <input type="text" id="f-hobby" placeholder="hiking..." oninput="debounceSearch()" />
+      </div>
+      <div class="field">
+        <label>Bio Text Search</label>
+        <input type="text" id="f-bio" placeholder="keyword..." oninput="debounceSearch()" />
+      </div>
+      <div class="field" style="justify-content:flex-end;padding-top:20px">
+        <button class="btn btn-ghost" onclick="clearFilters()">⟳ Reset</button>
+      </div>
+    </div>
+
+    <!-- AGE RANGE -->
+    <div style="display:flex;gap:12px;margin-bottom:24px;align-items:flex-end">
+      <div class="field">
+        <label>Min Age</label>
+        <input type="number" id="f-minage" placeholder="0" min="0" max="120" style="width:110px" oninput="debounceSearch()" />
+      </div>
+      <div class="field">
+        <label>Max Age</label>
+        <input type="number" id="f-maxage" placeholder="120" min="0" max="120" style="width:110px" oninput="debounceSearch()" />
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th class="hide-mobile">Age</th>
+            <th class="hide-mobile">Hobbies</th>
+            <th class="hide-mobile">Bio</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-tbody">
+          <tr><td colspan="5" class="loading-row"><div class="spinner"></div></td></tr>
+        </tbody>
+      </table>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────
+  //  CONFIG
+  // ─────────────────────────────────────────────
+  const API = 'http://localhost:5000/api/users';
+
+  let currentPage = 1;
+  let editingId = null;
+  let searchTimer = null;
+
+  // ─────────────────────────────────────────────
+  //  INIT
+  // ─────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    checkStatus();
+    loadUsers();
+  });
+
+  async function checkStatus() {
+    try {
+      const r = await fetch('http://localhost:5000/');
+      if (r.ok) {
+        document.getElementById('status-dot').className = 'status-dot online';
+        document.getElementById('status-text').textContent = 'API Online';
+      } else throw new Error();
+    } catch {
+      document.getElementById('status-dot').className = 'status-dot error';
+      document.getElementById('status-text').textContent = 'API Offline';
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  TABS
+  // ─────────────────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('section-add').style.display = tab === 'add' ? 'block' : 'none';
+    document.getElementById('section-list').style.display = tab === 'list' ? 'block' : 'none';
+    document.getElementById('tab-add').className = 'tab' + (tab === 'add' ? ' active' : '');
+    document.getElementById('tab-list').className = 'tab' + (tab === 'list' ? ' active' : '');
+  }
+
+  // ─────────────────────────────────────────────
+  //  LOAD USERS
+  // ─────────────────────────────────────────────
+  async function loadUsers(page = 1) {
+    currentPage = page;
+    const tbody = document.getElementById('user-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-row"><div class="spinner"></div></td></tr>';
+
+    const params = new URLSearchParams();
+    const name   = document.getElementById('f-name').value.trim();
+    const email  = document.getElementById('f-email').value.trim();
+    const hobby  = document.getElementById('f-hobby').value.trim();
+    const bio    = document.getElementById('f-bio').value.trim();
+    const minAge = document.getElementById('f-minage').value;
+    const maxAge = document.getElementById('f-maxage').value;
+
+    if (name)   params.append('name', name);
+    if (email)  params.append('email', email);
+    if (hobby)  params.append('hobby', hobby);
+    if (bio)    params.append('search', bio);
+    if (minAge) params.append('minAge', minAge);
+    if (maxAge) params.append('maxAge', maxAge);
+    params.append('page', page);
+    params.append('limit', 10);
+
+    try {
+      const res = await fetch(`${API}?${params}`);
+      const data = await res.json();
+
+      document.getElementById('user-count').textContent = `${data.total ?? 0} users`;
+      renderTable(data.data || []);
+      renderPagination(data.page, data.pages);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="loading-row" style="color:var(--red)">⚠️ Cannot connect to API — make sure the backend is running on port 5000</td></tr>`;
+    }
+  }
+
+  function renderTable(users) {
+    const tbody = document.getElementById('user-tbody');
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">🫙</div><div class="empty-text">No users found</div><div class="empty-sub">Try adjusting your filters or add a new user</div></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>
+          <div class="user-name">${esc(u.name)}</div>
+          <div class="user-email">${esc(u.email)}</div>
+        </td>
+        <td class="hide-mobile"><span class="age-badge">${u.age ?? '—'}</span></td>
+        <td class="hide-mobile">${(u.hobbies || []).map(h => `<span class="hobby-pill">${esc(h)}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</td>
+        <td class="hide-mobile" style="color:var(--muted);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.bio) || '—'}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-success btn-sm" onclick="openEdit('${u._id}')">✏️ Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u._id}', '${esc(u.name)}')">🗑</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderPagination(page, pages) {
+    const pg = document.getElementById('pagination');
+    if (!pages || pages <= 1) { pg.innerHTML = ''; return; }
+    let html = `<button class="page-btn" onclick="loadUsers(${page-1})" ${page<=1?'disabled':''}>‹</button>`;
+    for (let i = 1; i <= pages; i++) {
+      html += `<button class="page-btn ${i===page?'active':''}" onclick="loadUsers(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="loadUsers(${page+1})" ${page>=pages?'disabled':''}>›</button>`;
+    pg.innerHTML = html;
+  }
+
+  // ─────────────────────────────────────────────
+  //  ADD USER
+  // ─────────────────────────────────────────────
+  async function addUser() {
+    const btn = document.getElementById('add-btn');
+    const name    = document.getElementById('add-name').value.trim();
+    const email   = document.getElementById('add-email').value.trim();
+    const age     = document.getElementById('add-age').value;
+    const hobbies = document.getElementById('add-hobbies').value.trim();
+    const bio     = document.getElementById('add-bio').value.trim();
+
+    if (!name || !email) { toast('Name and Email are required', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Creating...';
+
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, email,
+          age: age ? Number(age) : undefined,
+          hobbies: hobbies ? hobbies.split(',').map(h => h.trim()).filter(Boolean) : [],
+          bio,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.errors?.join(', '));
+      toast('User created successfully!', 'success');
+      clearAddForm();
+      switchTab('list');
+      loadUsers();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '➕ Create User';
+    }
+  }
+
+  function clearAddForm() {
+    ['add-name','add-email','add-age','add-hobbies','add-bio'].forEach(id => document.getElementById(id).value = '');
+  }
+
+  // ─────────────────────────────────────────────
+  //  DELETE USER
+  // ─────────────────────────────────────────────
+  async function deleteUser(id, name) {
+    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast('User deleted', 'info');
+      loadUsers(currentPage);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  EDIT USER
+  // ─────────────────────────────────────────────
+  async function openEdit(id) {
+    try {
+      const res = await fetch(`${API}/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      const u = data.data;
+      editingId = id;
+      document.getElementById('edit-name').value    = u.name || '';
+      document.getElementById('edit-email').value   = u.email || '';
+      document.getElementById('edit-age').value     = u.age ?? '';
+      document.getElementById('edit-hobbies').value = (u.hobbies || []).join(', ');
+      document.getElementById('edit-bio').value     = u.bio || '';
+      document.getElementById('edit-overlay').classList.add('open');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('edit-overlay').classList.remove('open');
+    editingId = null;
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const btn = document.getElementById('save-btn');
+    const name    = document.getElementById('edit-name').value.trim();
+    const email   = document.getElementById('edit-email').value.trim();
+    const age     = document.getElementById('edit-age').value;
+    const hobbies = document.getElementById('edit-hobbies').value.trim();
+    const bio     = document.getElementById('edit-bio').value.trim();
+
+    if (!name || !email) { toast('Name and Email are required', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Saving...';
+
+    try {
+      const res = await fetch(`${API}/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, email,
+          age: age ? Number(age) : undefined,
+          hobbies: hobbies ? hobbies.split(',').map(h => h.trim()).filter(Boolean) : [],
+          bio,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.errors?.join(', '));
+      toast('User updated!', 'success');
+      closeModal();
+      loadUsers(currentPage);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '💾 Save Changes';
+    }
+  }
+
+  // Close modal on overlay click
+  document.getElementById('edit-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ─────────────────────────────────────────────
+  //  SEARCH DEBOUNCE
+  // ─────────────────────────────────────────────
+  function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadUsers(1), 400);
+  }
+
+  function clearFilters() {
+    ['f-name','f-email','f-hobby','f-bio','f-minage','f-maxage'].forEach(id => document.getElementById(id).value = '');
+    loadUsers(1);
+  }
+
+  // ─────────────────────────────────────────────
+  //  UTILS
+  // ─────────────────────────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    el.innerHTML = `<span>${icons[type] || ''}</span> ${msg}`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+</script>
+</body>
+</html>
